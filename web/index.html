@@ -1,0 +1,97 @@
+<script>
+const state = {
+    loading: false
+};
+
+const elements = {
+    btnExecutar: document.getElementById('btnExecutar'),
+    input: document.getElementById('promptInput'),
+    frame: document.getElementById('previewFrame'),
+    placeholder: document.getElementById('placeholderPreview'),
+    areaAjustes: document.getElementById('areaAjustes')
+};
+
+// UI helpers
+function setLoading(isLoading) {
+    state.loading = isLoading;
+
+    elements.btnExecutar.disabled = isLoading;
+    elements.btnExecutar.innerText = isLoading 
+        ? "GERANDO..." 
+        : "GERAR PRÉVIA GRÁTIS";
+}
+
+function showPreview(url) {
+    elements.frame.src = url;
+    elements.frame.classList.remove('hidden');
+    elements.placeholder.classList.add('hidden');
+
+    // ativa ajustes
+    elements.areaAjustes.classList.remove('opacity-50');
+    elements.areaAjustes.style.pointerEvents = "auto";
+}
+
+function showError(message) {
+    console.error(message);
+
+    // substitui alert por algo melhor
+    const div = document.createElement('div');
+    div.innerText = message;
+    div.className = "fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg";
+
+    document.body.appendChild(div);
+
+    setTimeout(() => div.remove(), 3000);
+}
+
+// main action
+async function executar() {
+    if (state.loading) return;
+
+    const prompt = elements.input.value.trim();
+
+    if (!prompt) {
+        return showError("Descreva o seu projeto!");
+    }
+
+    setLoading(true);
+
+    try {
+        const response = await fetch('/executar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+
+        if (!response.ok) {
+            throw new Error("Erro no servidor");
+        }
+
+        const data = await response.json();
+
+        if (!data.sucesso) {
+            throw new Error(data.erro || "Erro desconhecido");
+        }
+
+        // segurança básica no caminho
+        const safePath = encodeURIComponent(data.arquivo);
+
+        showPreview(`/output/${safePath}`);
+
+    } catch (error) {
+        showError(error.message || "Erro na conexão");
+    } finally {
+        setLoading(false);
+    }
+}
+
+// eventos
+elements.btnExecutar.addEventListener('click', executar);
+
+// UX extra: ENTER envia
+elements.input.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+        executar();
+    }
+});
+</script>
