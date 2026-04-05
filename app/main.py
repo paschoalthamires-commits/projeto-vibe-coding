@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 # ==============================
 # CARREGA VARIÁVEIS DE AMBIENTE
 # ==============================
-load_dotenv()  # Procura um arquivo .env na raiz
+load_dotenv()
 
 PORT = int(os.getenv("PORT", 5000))
-MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 2 * 1024 * 1024))  # 2MB padrão
+MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 2 * 1024 * 1024))
 RATE_LIMIT_COUNT = int(os.getenv("RATE_LIMIT_COUNT", 5))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", 60))
 
@@ -24,9 +24,16 @@ from services.ai_service import gerar_codigo, remodelar_codigo
 from utils.code_utils import salvar_codigo, OUTPUT_DIR
 
 # ==============================
-# CONFIGURAÇÃO DO FLASK
+# CONFIGURAÇÃO DO FLASK (AJUSTADA PARA O RENDER)
 # ==============================
-app = Flask(__name__, template_folder="web", static_folder="web")
+# Descobre o caminho da pasta 'web' que está fora da pasta 'app'
+base_dir = os.path.abspath(os.path.dirname(__file__))
+web_dir = os.path.join(base_dir, '..', 'web')
+
+app = Flask(__name__, 
+            template_folder=web_dir, 
+            static_folder=web_dir)
+
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 # ==============================
@@ -51,7 +58,6 @@ def require_rate_limit(f):
         if ip not in rate_limit_store:
             rate_limit_store[ip] = []
 
-        # Remove timestamps antigos
         rate_limit_store[ip] = [t for t in rate_limit_store[ip] if now - t < RATE_LIMIT_WINDOW]
 
         if len(rate_limit_store[ip]) >= RATE_LIMIT_COUNT:
@@ -158,6 +164,9 @@ def health():
 @app.route("/listar_projetos")
 def listar_projetos():
     try:
+        if not os.path.exists(OUTPUT_DIR):
+            os.makedirs(OUTPUT_DIR)
+            
         projetos = [
             {"arquivo": f, "modificado": os.path.getmtime(os.path.join(OUTPUT_DIR, f))}
             for f in os.listdir(OUTPUT_DIR)
@@ -173,4 +182,5 @@ def listar_projetos():
 # INICIALIZAÇÃO
 # ==============================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=True)
+    # O Render fornece a porta via variável de ambiente PORT
+    app.run(host="0.0.0.0", port=PORT)
