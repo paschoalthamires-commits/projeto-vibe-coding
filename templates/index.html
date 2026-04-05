@@ -1,97 +1,89 @@
-<script>
-const state = {
-    loading: false
-};
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Coding - Gerador de Sites</title>
+    <script src="https://tailwindcss.com"></script>
+    <style>
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col items-center p-8">
 
-const elements = {
-    btnExecutar: document.getElementById('btnExecutar'),
-    input: document.getElementById('promptInput'),
-    frame: document.getElementById('previewFrame'),
-    placeholder: document.getElementById('placeholderPreview'),
-    areaAjustes: document.getElementById('areaAjustes')
-};
+    <h1 class="text-4xl font-bold mb-4 text-blue-500">Vibe Coding</h1>
+    <p class="mb-8 text-gray-400 text-center max-w-lg">Descreva o site que você deseja criar e nossa IA gerará uma prévia em segundos.</p>
 
-// UI helpers
-function setLoading(isLoading) {
-    state.loading = isLoading;
+    <div class="w-full max-w-4xl bg-gray-800 p-6 rounded-2xl shadow-2xl">
+        <textarea id="promptInput" class="w-full bg-gray-700 p-4 rounded-xl border border-gray-600 focus:outline-none focus:border-blue-500 mb-4" rows="3" placeholder="Ex: Crie uma landing page para uma cafeteria com cores tons pastel..."></textarea>
+        
+        <div class="flex flex-col sm:flex-row gap-4">
+            <!-- Botão de Executar -->
+            <button id="btnExecutar" class="flex-1 bg-blue-600 hover:bg-blue-700 px-6 py-4 rounded-xl font-bold transition-all">
+                GERAR PRÉVIA GRÁTIS
+            </button>
 
-    elements.btnExecutar.disabled = isLoading;
-    elements.btnExecutar.innerText = isLoading 
-        ? "GERANDO..." 
-        : "GERAR PRÉVIA GRÁTIS";
-}
+            <!-- Seu Link do Mercado Pago -->
+            <a href="https://mpago.la" target="_blank" class="flex-1 bg-green-600 hover:bg-green-700 px-6 py-4 rounded-xl font-bold text-center transition-all shadow-lg">
+                🚀 BAIXAR CÓDIGO (R$ 10,00)
+            </a>
+        </div>
+    </div>
 
-function showPreview(url) {
-    elements.frame.src = url;
-    elements.frame.classList.remove('hidden');
-    elements.placeholder.classList.add('hidden');
+    <!-- Área de Preview -->
+    <div id="areaPreview" class="w-full max-w-6xl mt-12 bg-white rounded-xl overflow-hidden shadow-2xl h-[500px]">
+        <div id="placeholderPreview" class="flex items-center justify-center h-full text-gray-500 bg-gray-800">
+            A prévia do seu site aparecerá aqui...
+        </div>
+        <iframe id="previewFrame" class="w-full h-full hidden border-none"></iframe>
+    </div>
 
-    // ativa ajustes
-    elements.areaAjustes.classList.remove('opacity-50');
-    elements.areaAjustes.style.pointerEvents = "auto";
-}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const state = { loading: false };
+            const elements = {
+                btnExecutar: document.getElementById('btnExecutar'),
+                input: document.getElementById('promptInput'),
+                frame: document.getElementById('previewFrame'),
+                placeholder: document.getElementById('placeholderPreview')
+            };
 
-function showError(message) {
-    console.error(message);
+            function setLoading(isLoading) {
+                state.loading = isLoading;
+                elements.btnExecutar.disabled = isLoading;
+                elements.btnExecutar.innerText = isLoading ? "GERANDO..." : "GERAR PRÉVIA GRÁTIS";
+            }
 
-    // substitui alert por algo melhor
-    const div = document.createElement('div');
-    div.innerText = message;
-    div.className = "fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg";
+            async function executar() {
+                if (state.loading) return;
+                const prompt = elements.input.value.trim();
+                if (!prompt) return alert("Descreva o seu projeto!");
 
-    document.body.appendChild(div);
+                setLoading(true);
+                try {
+                    const response = await fetch('/executar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.sucesso) {
+                        elements.frame.srcdoc = data.codigo; // Mostra o código gerado direto no frame
+                        elements.frame.classList.remove('hidden');
+                        elements.placeholder.classList.add('hidden');
+                    } else {
+                        alert(data.erro || "Erro na geração");
+                    }
+                } catch (error) {
+                    alert("Erro na conexão com o servidor.");
+                } finally {
+                    setLoading(false);
+                }
+            }
 
-    setTimeout(() => div.remove(), 3000);
-}
-
-// main action
-async function executar() {
-    if (state.loading) return;
-
-    const prompt = elements.input.value.trim();
-
-    if (!prompt) {
-        return showError("Descreva o seu projeto!");
-    }
-
-    setLoading(true);
-
-    try {
-        const response = await fetch('/executar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
+            elements.btnExecutar.addEventListener('click', executar);
         });
-
-        if (!response.ok) {
-            throw new Error("Erro no servidor");
-        }
-
-        const data = await response.json();
-
-        if (!data.sucesso) {
-            throw new Error(data.erro || "Erro desconhecido");
-        }
-
-        // segurança básica no caminho
-        const safePath = encodeURIComponent(data.arquivo);
-
-        showPreview(`/output/${safePath}`);
-
-    } catch (error) {
-        showError(error.message || "Erro na conexão");
-    } finally {
-        setLoading(false);
-    }
-}
-
-// eventos
-elements.btnExecutar.addEventListener('click', executar);
-
-// UX extra: ENTER envia
-elements.input.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'Enter') {
-        executar();
-    }
-});
-</script>
+    </script>
+</body>
+</html>
